@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ToniFlow - Entrenamientos y Rutinas</title>
+  <meta name="description" content="Aplicación web de entrenamiento para gestionar ejercicios por categorías (Push, Pull, Legs, Core), crear rutinas personalizadas y entrenar con sincronización en tiempo real en Firebase.">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#020B26">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Reloj global de tiempo restante de la rutina (visible durante todo el entrenamiento) -->
+    <div id="globalRoutineTimer" class="global-routine-timer hidden">⏱ <span id="globalRoutineTimerValue">0:00</span></div>
+
+    <!-- Pantalla 1: Home / Mis Rutinas -->
+    <section id="home" class="screen active">
+      <header class="header">
+        <div class="brand">
+          <div class="logo">🏋</div>
+          <div>
+            <h1>ToniFlow</h1>
+            <div id="syncBadge" class="sync-badge connecting">
+              <span class="sync-dot"></span>
+              <span id="syncText">Conectando...</span>
+            </div>
+          </div>
+        </div>
+        <button id="openSettingsBtn" class="icon-btn" title="Configuración general">⚙️</button>
+        <button id="resetDefaultsBtn" class="icon-btn" title="Restaurar datos de ejemplo">↺</button>
+      </header>
+
+      <h2>Mis rutinas</h2>
+      <p class="section-desc">Elige una rutina para entrenar o crea la tuya propia.</p>
+      
+      <div id="routineList"></div>
+
+      <button id="newRoutine" class="primary">+ Nueva rutina</button>
+      <button id="manageExercises" class="secondary">Catálogo de ejercicios</button>
+    </section>
+
+    <!-- Pantalla 2: Catálogo de Ejercicios -->
+    <section id="exerciseManager" class="screen">
+      <button class="back" data-target="home">← Volver</button>
+      <h2>Catálogo de ejercicios</h2>
+      <p class="section-desc">Administra tus ejercicios organizados por grupo muscular y categoría.</p>
+
+      <!-- Filtros por Categoría -->
+      <div class="category-filters" id="categoryFilterBar">
+        <button type="button" class="filter-chip active" data-cat="all">Todos <span class="chip-count" id="count-all">0</span></button>
+        <button type="button" class="filter-chip chip-push" data-cat="Push">Push <span class="chip-count" id="count-Push">0</span></button>
+        <button type="button" class="filter-chip chip-pull" data-cat="Pull">Pull <span class="chip-count" id="count-Pull">0</span></button>
+        <button type="button" class="filter-chip chip-legs" data-cat="Legs">Legs <span class="chip-count" id="count-Legs">0</span></button>
+        <button type="button" class="filter-chip chip-core" data-cat="Core">Core <span class="chip-count" id="count-Core">0</span></button>
+      </div>
+
+      <div id="exerciseList"></div>
+
+      <button id="newExercise" class="primary">+ Nuevo ejercicio</button>
+    </section>
+
+    <!-- Pantalla 3: Crear / Editar Ejercicio -->
+    <section id="exerciseEditor" class="screen">
+      <button id="cancelExerciseBtn" class="back">← Volver / Cancelar</button>
+      <h2 id="exerciseEditorTitle">Nuevo ejercicio</h2>
+      <p class="section-desc">Completa los datos del ejercicio, asigna su categoría muscular e incluye una imagen o GIF.</p>
+
+      <div class="form-group">
+        <label for="exNameInput">Nombre del ejercicio *</label>
+        <input type="text" id="exNameInput" placeholder="Ej: Press de banca, Dominadas, Sentadillas..." autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="exCategorySelect">Categoría muscular obligatoria *</label>
+        <select id="exCategorySelect" required>
+          <option value="Push">Push (Empuje: Pectoral, Hombros, Tríceps)</option>
+          <option value="Pull">Pull (Tracción: Espalda, Bíceps, Deltoides posterior)</option>
+          <option value="Legs">Legs (Piernas: Cuádriceps, Isquios, Glúteos, Gemelos)</option>
+          <option value="Core">Core (Zona media: Abdomen, Lumbares)</option>
+        </select>
+        <span class="field-hint" id="categoryHint">Ejercicios de empuje frontal/vertical: pectoral, deltoides y tríceps.</span>
+      </div>
+
+      <div class="form-group">
+        <label for="exDurationInput">Duración predeterminada (segundos por serie)</label>
+        <input type="number" id="exDurationInput" min="5" max="600" value="45" placeholder="45">
+      </div>
+
+      <div class="form-group">
+        <label for="exRestBetweenSetsInput">Tiempo de descanso entre series (segundos)</label>
+        <input type="number" id="exRestBetweenSetsInput" min="5" max="600" value="45" placeholder="45">
+      </div>
+
+      <div class="form-group">
+        <label for="exImageInput">Imagen o GIF de muestra</label>
+        <input type="url" id="exImageInput" placeholder="Pega aquí la URL de la imagen o GIF...">
+        
+        <div class="upload-options">
+          <div class="file-input-wrapper">
+            <button type="button" class="secondary" style="margin-top:0; width:100%;">📁 Subir archivo local</button>
+            <input type="file" id="exFileInput" accept="image/*">
+          </div>
+          <button type="button" id="clearImageBtn" class="btn-outline btn-danger" style="display:none;">Quitar imagen</button>
+        </div>
+
+        <div class="image-preview-box" id="exImagePreviewBox">
+          <img id="exImagePreview" alt="Vista previa" style="display: none;">
+          <div id="exImagePlaceholder" class="placeholder-text">
+            <span>🖼️ Sin imagen seleccionada</span><br>
+            <small style="color:var(--soft); font-size:12px;">Pega una URL arriba o sube una imagen/GIF desde tu dispositivo.</small>
+          </div>
+        </div>
+      </div>
+
+      <button id="saveExerciseBtn" class="primary">Guardar ejercicio</button>
+      <button id="cancelExerciseBtn2" class="secondary">Cancelar</button>
+    </section>
+
+    <!-- Pantalla 4: Editor de Rutina -->
+    <section id="routineEditor" class="screen">
+      <button class="back" data-target="home">← Volver</button>
+      <h2>Editar rutina</h2>
+      <p class="section-desc">Personaliza el nombre y configura las series y repeticiones de cada ejercicio.</p>
+
+      <div class="form-group">
+        <label for="routineName">Nombre de la rutina</label>
+        <input id="routineName" placeholder="Nombre de la rutina">
+      </div>
+
+      <div class="form-group">
+        <label for="routinePrepSeconds">Tiempo de preparación inicial (segundos)</label>
+        <input id="routinePrepSeconds" type="number" min="0" max="120" placeholder="Ej: 10">
+        <span class="field-hint">Se muestra una única vez al iniciar la rutina, antes de la primera serie del primer ejercicio.</span>
+      </div>
+
+      <div class="form-group">
+        <label for="routineExerciseRestSeconds">Descanso entre ejercicios (segundos)</label>
+        <input id="routineExerciseRestSeconds" type="number" min="5" max="600" placeholder="Ej: 90">
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:8px;">
+        <label style="margin-bottom:0; font-size:15px; font-weight:700; color:#fff;">Ejercicios de la rutina</label>
+        <span id="routineExerciseCount" style="font-size:13px; color:var(--soft);">0 ejercicios</span>
+      </div>
+
+      <div id="routineExercises"></div>
+
+      <div class="routine-add-actions">
+        <button id="addToRoutine" class="primary">+ Agregar ejercicios</button>
+        <button id="addSuperset" class="secondary">🔗 + Añadir Superserie</button>
+      </div>
+    </section>
+
+    <!-- Modal: Configuración General -->
+    <div id="settingsModal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Configuración general</h3>
+          <button id="closeSettingsBtn" class="close-btn" title="Cerrar">✕</button>
+        </div>
+        <p class="section-desc">Estas imágenes se usan como fondo de las pantallas de preparación y descanso en todas tus rutinas.</p>
+
+        <div class="form-group">
+          <label for="prepImageInput">Imagen para preparación inicial</label>
+          <input type="url" id="prepImageInput" placeholder="Pega aquí la URL de la imagen o GIF...">
+
+          <div class="upload-options">
+            <div class="file-input-wrapper">
+              <button type="button" class="secondary" style="margin-top:0; width:100%;">📁 Subir archivo local</button>
+              <input type="file" id="prepImageFileInput" accept="image/*">
+            </div>
+            <button type="button" id="prepImageClearBtn" class="btn-outline btn-danger" style="display:none;">Quitar imagen</button>
+          </div>
+        </div>
+
+        <div class="image-preview-box" id="prepImagePreviewBox">
+          <img id="prepImagePreview" alt="Vista previa" style="display: none;">
+          <div id="prepImagePlaceholder" class="placeholder-text">
+            <span>🖼️ Sin imagen configurada</span><br>
+            <small style="color:var(--soft); font-size:12px;">Se usará una imagen predeterminada mientras tanto.</small>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:18px;">
+          <label for="restBetweenSetsImageInput">Imagen para descanso entre series</label>
+          <input type="url" id="restBetweenSetsImageInput" placeholder="Pega aquí la URL de la imagen o GIF...">
+
+          <div class="upload-options">
+            <div class="file-input-wrapper">
+              <button type="button" class="secondary" style="margin-top:0; width:100%;">📁 Subir archivo local</button>
+              <input type="file" id="restBetweenSetsImageFileInput" accept="image/*">
+            </div>
+            <button type="button" id="restBetweenSetsImageClearBtn" class="btn-outline btn-danger" style="display:none;">Quitar imagen</button>
+          </div>
+        </div>
+
+        <div class="image-preview-box" id="restBetweenSetsImagePreviewBox">
+          <img id="restBetweenSetsImagePreview" alt="Vista previa" style="display: none;">
+          <div id="restBetweenSetsImagePlaceholder" class="placeholder-text">
+            <span>🖼️ Sin imagen configurada</span><br>
+            <small style="color:var(--soft); font-size:12px;">Se usará una imagen predeterminada mientras tanto.</small>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:18px;">
+          <label for="restBetweenExercisesImageInput">Imagen para descanso entre ejercicios</label>
+          <input type="url" id="restBetweenExercisesImageInput" placeholder="Pega aquí la URL de la imagen o GIF...">
+
+          <div class="upload-options">
+            <div class="file-input-wrapper">
+              <button type="button" class="secondary" style="margin-top:0; width:100%;">📁 Subir archivo local</button>
+              <input type="file" id="restBetweenExercisesImageFileInput" accept="image/*">
+            </div>
+            <button type="button" id="restBetweenExercisesImageClearBtn" class="btn-outline btn-danger" style="display:none;">Quitar imagen</button>
+          </div>
+        </div>
+
+        <div class="image-preview-box" id="restBetweenExercisesImagePreviewBox">
+          <img id="restBetweenExercisesImagePreview" alt="Vista previa" style="display: none;">
+          <div id="restBetweenExercisesImagePlaceholder" class="placeholder-text">
+            <span>🖼️ Sin imagen configurada</span><br>
+            <small style="color:var(--soft); font-size:12px;">Se usará una imagen predeterminada mientras tanto.</small>
+          </div>
+        </div>
+
+        <button id="saveSettingsBtn" class="primary" style="margin-top:14px;">Guardar configuración</button>
+      </div>
+    </div>
+
+    <!-- Modal Interactivo: Selección Visual de Ejercicios -->
+    <div id="exercisePickerModal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="pickerModalTitle">Seleccionar ejercicios</h3>
+          <button id="closePickerBtn" class="close-btn" title="Cerrar">✕</button>
+        </div>
+        <p class="section-desc" id="pickerModalDesc" style="margin-bottom:10px;">Selecciona los ejercicios que deseas incluir en tu rutina.</p>
+        
+        <input type="text" id="pickerSearchInput" class="picker-search" placeholder="🔍 Buscar ejercicio por nombre...">
+        
+        <div class="category-filters modal-filters" id="modalCategoryFilterBar">
+          <button type="button" class="filter-chip active" data-cat="all">Todos</button>
+          <button type="button" class="filter-chip chip-push" data-cat="Push">Push</button>
+          <button type="button" class="filter-chip chip-pull" data-cat="Pull">Pull</button>
+          <button type="button" class="filter-chip chip-legs" data-cat="Legs">Legs</button>
+          <button type="button" class="filter-chip chip-core" data-cat="Core">Core</button>
+        </div>
+
+        <div id="pickerList" class="picker-list"></div>
+
+        <div style="margin-top:14px;">
+          <button id="confirmAddBtn" class="primary" style="margin-top:0;">Añadir a la rutina (<span id="selectedPickerCount">0</span>)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pantalla 5: Modo Entrenamiento / Workout -->
+    <section id="workout" class="screen">
+      <div class="workout-header">
+        <button id="exitWorkout" class="back" style="margin-bottom:0;">← Salir</button>
+        <span id="workoutProgressBadge" class="workout-progress-badge">Ejercicio 1/1</span>
+      </div>
+
+      <div id="workoutCategoryBadge" class="cat-badge-workout">Push</div>
+      <h2 id="exerciseTitle">Cargando...</h2>
+
+      <div class="workout-image-container">
+        <img id="exerciseImage" alt="Ejercicio en progreso">
+        <div id="restVisual" class="rest-visual" style="display:none;">
+          <span>🧘 Descanso</span>
+          <small style="font-size:13px; color:var(--soft);">Toma aire para la siguiente serie</small>
+        </div>
+      </div>
+
+      <div id="timer">0:45</div>
+      <div id="seriesInfo">Serie 1 de 3</div>
+
+      <div class="controls">
+        <button id="prevBtn" title="Anterior">◀</button>
+        <button id="pauseBtn">Pausar</button>
+        <button id="nextBtn" title="Siguiente">▶</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast">Mensaje guardado</div>
+
+  <script type="module" src="./script.js"></script>
+
+<div id="exerciseRestOverlay" class="exercise-rest-overlay hidden">
+ <div class="exercise-rest-card">
+  <img id="exerciseRestImage" class="exercise-rest-image" src="">
+  <h2>Descanso entre Ejercicios</h2>
+  <div id="exerciseRestCountdown" class="exercise-rest-count">60</div>
+  <p>Próximo Ejercicio: <strong id="nextExerciseLabel">-</strong></p>
+  <div class="exercise-rest-actions">
+    <button id="skipExerciseRest">Saltar descanso</button>
+  </div>
+ </div>
+</div>
+</body>
+</html>
