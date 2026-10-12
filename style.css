@@ -1176,3 +1176,73 @@ input:focus, select:focus {
 .global-routine-timer.hidden {
   display: none;
 }
+
+/* ==========================================
+   Reordenar ejercicios de la rutina (arrastrar y soltar)
+   ========================================== */
+.routine-exercise-card {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Los campos de texto siguen siendo editables y seleccionables */
+.routine-exercise-card input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.drag-handle {
+  flex-shrink: 0;
+  width: 32px;
+  height: 40px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--soft);
+  font-size: 20px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none; /* el gesto sobre el marcador es para arrastrar, no para hacer scroll */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.drag-handle:hover {
+  background: var(--card-hover);
+  color: var(--green);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.superset-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.superset-header .superset-label {
+  margin-bottom: 0;
+}
+
+/* Elemento fantasma: el lugar donde caerá la tarjeta mientras se arrastra */
+.sortable-ghost {
+  opacity: 0.35;
+  border: 1px dashed var(--green);
+  background: rgba(138, 208, 0, 0.08);
+}
+
+.sortable-chosen {
+  cursor: grabbing;
+}
+
+/* Tarjeta que sigue al dedo / cursor */
+.sortable-drag {
+  opacity: 0.95;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+}

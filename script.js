@@ -1123,8 +1123,20 @@ function handleRoutineExtrasChange() {
 routinePrepSecondsInput.oninput = handleRoutineExtrasChange;
 routineExerciseRestSecondsInput.oninput = handleRoutineExtrasChange;
 
+// ==========================================
+// REORDENAR EJERCICIOS DE LA RUTINA (arrastrar y soltar con SortableJS)
+// ==========================================
+let routineSortable = null;
+let isDraggingRoutineItem = false;
+
+// Marcador de arrastre que se agrega al inicio de cada tarjeta (ejercicio individual o superserie)
+const DRAG_HANDLE_HTML = '<button type="button" class="drag-handle" title="Mantén y arrastra para reordenar" aria-label="Arrastrar para reordenar">⠿</button>';
+
 function drawRoutine() {
   if (!routineExercisesList) return;
+  // Si llega una actualización de Firebase en medio de un arrastre, no se repinta la lista
+  // (se repinta sola al soltar), para no destruir el elemento que el usuario está moviendo.
+  if (isDraggingRoutineItem) return;
   routineExercisesList.innerHTML = '';
   const routine = db.routines[currentRoutineIndex];
   if (!routine) return;
@@ -1157,6 +1169,7 @@ function drawRoutine() {
 
     const card = document.createElement('div');
     card.className = 'routine-exercise-card';
+    card.dataset.itemIndex = itemIndex; // índice real en routine.items (puede haber ítems inválidos sin tarjeta)
 
     const thumbHtml = exercise.image
       ? `<div class="routine-exercise-thumb"><img src="${exercise.image}" alt="${exercise.name}" onerror="this.parentElement.innerHTML='🏋'"></div>`
@@ -1166,6 +1179,7 @@ function drawRoutine() {
 
     card.innerHTML = `
       <div class="routine-exercise-header">
+        ${DRAG_HANDLE_HTML}
         ${thumbHtml}
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
@@ -1214,6 +1228,7 @@ function drawRoutine() {
 function buildSupersetCard(item, itemIndex) {
   const card = document.createElement('div');
   card.className = 'routine-exercise-card superset-card';
+  card.dataset.itemIndex = itemIndex;
 
   const exerciseIds = item.exerciseIds || [];
   const label = exerciseIds.length >= 3 ? 'Triserie' : 'Superserie';
@@ -1239,7 +1254,10 @@ function buildSupersetCard(item, itemIndex) {
   }).join('');
 
   card.innerHTML = `
-    <div class="superset-label">🔗 ${label} (${exerciseIds.length} ejercicios)</div>
+    <div class="superset-header">
+      ${DRAG_HANDLE_HTML}
+      <div class="superset-label">🔗 ${label} (${exerciseIds.length} ejercicios)</div>
+    </div>
     <div class="superset-exercises-row">${chipsHtml}</div>
     <div class="superset-inputs-row">
       <label>
@@ -1288,6 +1306,68 @@ function buildSupersetCard(item, itemIndex) {
 
   return card;
 }
+
+// Aplica el nuevo orden visual de las tarjetas sobre routine.items.
+// Se lee el orden real desde data-item-index (no desde oldIndex/newIndex), porque los ítems
+// inválidos (ejercicio borrado del catálogo) no tienen tarjeta y desfasarían los índices:
+// esos ítems conservan su posición y solo se permutan los que sí se ven.
+function applyRoutineOrderFromDom() {
+  const routine = db.routines[currentRoutineIndex];
+  if (!routine || !routineExercisesList) return false;
+
+  const newOrder = [...routineExercisesList.querySelectorAll(':scope > .routine-exercise-card')]
+    .map(card => Number(card.dataset.itemIndex));
+  const slots = [...newOrder].sort((a, b) => a - b);
+
+  const changed = newOrder.some((originalIdx, pos) => originalIdx !== slots[pos]);
+  if (!changed) return false;
+
+  const items = routine.items || [];
+  const reordered = items.slice();
+  slots.forEach((slot, pos) => {
+    reordered[slot] = items[newOrder[pos]];
+  });
+  routine.items = reordered;
+  return true;
+}
+
+function initRoutineSortable() {
+  if (routineSortable || !routineExercisesList) return;
+
+  // SortableJS llega por CDN: si no cargó (p. ej. sin conexión), la app sigue funcionando sin reordenar
+  if (typeof Sortable === 'undefined') {
+    console.warn('SortableJS no está disponible: el reordenamiento por arrastre queda desactivado.');
+    return;
+  }
+
+  routineSortable = Sortable.create(routineExercisesList, {
+    animation: 150,
+    draggable: '.routine-exercise-card',
+    handle: '.drag-handle',          // se arrastra desde el ícono ⠿, así los campos y el scroll táctil no se pisan
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    dragClass: 'sortable-drag',
+    delay: 120,                      // en pantallas táctiles evita arrastres accidentales al hacer scroll
+    delayOnTouchOnly: true,
+    touchStartThreshold: 4,
+    onStart: () => {
+      isDraggingRoutineItem = true;
+    },
+    onEnd: () => {
+      isDraggingRoutineItem = false;
+      const changed = applyRoutineOrderFromDom();
+      if (changed) {
+        save();            // persiste en localStorage (respaldo) y en Firebase
+        renderHome();
+        showToast('Orden actualizado');
+      }
+      // Se repinta siempre: refresca los índices de los botones "Quitar" y de los campos
+      drawRoutine();
+    }
+  });
+}
+
+initRoutineSortable();
 
 function removeRoutineItem(itemIndex) {
   if (db.routines[currentRoutineIndex]) {
