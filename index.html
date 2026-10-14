@@ -289,6 +289,17 @@
 
   <!-- SortableJS (reordenar ejercicios de la rutina arrastrando). Versión fija para evitar cambios inesperados -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script>
+    // Registro del Service Worker (PWA instalable). Va aquí y no en script.js a propósito:
+    // script.js es un módulo que importa Firebase; si ese módulo falla, el SW igual se registra.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+          .then(function (reg) { console.log('Service Worker registrado. Scope:', reg.scope); })
+          .catch(function (err) { console.error('Error registrando el Service Worker:', err); });
+      });
+    }
+  </script>
   <script type="module" src="./script.js"></script>
 
 <div id="exerciseRestOverlay" class="exercise-rest-overlay hidden">

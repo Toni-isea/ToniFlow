@@ -2209,18 +2209,5 @@ window.removeRoutineItem = removeRoutineItem;
 // Render inicial
 renderHome();
 
-// ==========================================
-// PWA: registro del Service Worker (soporte offline e instalación como app)
-// ==========================================
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then((registration) => {
-        console.log('Service Worker registrado:', registration.scope);
-      })
-      .catch((err) => {
-        console.error('Error registrando el Service Worker:', err);
-      });
-  });
-}
+// El registro del Service Worker (PWA) está en index.html, independiente de este módulo.
 

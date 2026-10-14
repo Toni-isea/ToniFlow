@@ -1,6 +1,7 @@
 {
   "name": "ToniFlow",
   "short_name": "ToniFlow",
+  "id": "./index.html",
   "description": "PWA de seguimiento de entrenamientos: rutinas, ejercicios y temporizadores en tiempo real.",
   "start_url": "./index.html",
   "scope": "./",
@@ -9,6 +10,7 @@
   "background_color": "#020B26",
   "theme_color": "#020B26",
   "lang": "es",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icons/icon-192.png",
